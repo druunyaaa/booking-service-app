@@ -1,1 +1,223 @@
-
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "BookingService API",
+    "description": "Официальная документация REST API для сервиса бронирования жилья. Включает эндпоинты для аутентификации, управления объектами недвижимости, бронирования и системы отзывов.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Команда ИНБО-12-23"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Локальный сервер разработки (Node.js)"
+    },
+    {
+      "url": "https://api.booking-service.ru",
+      "description": "Продакшен сервер"
+    }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Модуль регистрации и авторизации" },
+    { "name": "Properties", "description": "Модуль управления объявлениями и поиска" },
+    { "name": "Bookings", "description": "Модуль бронирования и календаря" },
+    { "name": "Reviews", "description": "Модуль отзывов и рейтингов" }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Регистрация нового пользователя",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "Иван Иванов" },
+                  "email": { "type": "string", "example": "ivan@example.com" },
+                  "password": { "type": "string", "example": "securePass123" },
+                  "role": { "type": "string", "example": "guest" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Пользователь успешно зарегистрирован" },
+          "400": { "description": "Ошибка валидации данных" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Авторизация и получение токена",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "ivan@example.com" },
+                  "password": { "type": "string", "example": "securePass123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Успешный вход, возвращен JWT токен" },
+          "401": { "description": "Неверный email или пароль" }
+        }
+      }
+    },
+    "/api/properties": {
+      "get": {
+        "tags": ["Properties"],
+        "summary": "Поиск жилья с фильтрацией",
+        "parameters": [
+          { "name": "city", "in": "query", "schema": { "type": "string" }, "example": "Екатеринбург" },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "guests", "in": "query", "schema": { "type": "integer" }, "example": 2 }
+        ],
+        "responses": {
+          "200": { "description": "Список свободных объектов недвижимости" }
+        }
+      },
+      "post": {
+        "tags": ["Properties"],
+        "summary": "Создание нового объявления (Хозяин)",
+        "security": [ { "BearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "example": "Уютная студия в центре" },
+                  "city": { "type": "string", "example": "Екатеринбург" },
+                  "price": { "type": "integer", "example": 4500 },
+                  "amenities": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["Wi-Fi", "Кухня"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Объявление опубликовано" },
+          "403": { "description": "Нет прав доступа" }
+        }
+      }
+    },
+    "/api/properties/{id}": {
+      "get": {
+        "tags": ["Properties"],
+        "summary": "Получить детальную информацию об объекте",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Данные объекта успешно получены" },
+          "404": { "description": "Объект не найден" }
+        }
+      }
+    },
+    "/api/bookings": {
+      "post": {
+        "tags": ["Bookings"],
+        "summary": "Создать новую заявку на бронирование",
+        "security": [ { "BearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "propertyId": { "type": "integer", "example": 302 },
+                  "startDate": { "type": "string", "format": "date", "example": "2026-05-15" },
+                  "endDate": { "type": "string", "format": "date", "example": "2026-05-20" },
+                  "guestsCount": { "type": "integer", "example": 2 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Заявка создана, статус 'Ожидает ответа'" },
+          "409": { "description": "Овербукинг: даты уже заняты" }
+        }
+      }
+    },
+    "/api/bookings/{id}/status": {
+      "patch": {
+        "tags": ["Bookings"],
+        "summary": "Изменить статус заявки (Одобрить/Отклонить)",
+        "security": [ { "BearerAuth": [] } ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["Забронировано", "Отклонено"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Статус успешно обновлен, календарь заблокирован" }
+        }
+      }
+    },
+    "/api/reviews": {
+      "post": {
+        "tags": ["Reviews"],
+        "summary": "Оставить отзыв после проживания",
+        "security": [ { "BearerAuth": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bookingId": { "type": "integer", "example": 123 },
+                  "rating": { "type": "integer", "example": 5 },
+                  "comment": { "type": "string", "example": "Всё было отлично, квартира чистая!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Отзыв сохранен, рейтинг пересчитан" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
